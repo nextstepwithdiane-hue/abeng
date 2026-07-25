@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- EmailJS Browser SDK — used to send the "Request a Tour" form without a backend -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root{
     --teal-950:#082E2F;
@@ -465,31 +467,11 @@
   }
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
   .contact-form .btn{width:100%; justify-content:center; margin-top:6px;}
-  .send-fallback{
-    display:none;
-    margin-top:18px;
-    padding:16px 18px;
-    background:var(--teal-100);
-    border-radius:14px;
-    font-size:13.5px;
-    color:var(--teal-900);
-    line-height:1.55;
+  .contact-form .btn:disabled{
+    opacity:0.65;
+    cursor:not-allowed;
+    transform:none !important;
   }
-  .send-fallback.show{display:block;}
-  .send-fallback b{display:block; margin-bottom:6px; font-size:14px;}
-  .send-fallback .fallback-actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
-  .send-fallback .fallback-actions a, .send-fallback .fallback-actions button{
-    font-family:'Inter',sans-serif;
-    font-size:13px;
-    font-weight:700;
-    padding:9px 16px;
-    border-radius:100px;
-    border:1.5px solid var(--teal-600);
-    background:var(--white);
-    color:var(--teal-800);
-    cursor:pointer;
-  }
-  .send-fallback .fallback-actions .copied{border-color:var(--gold); color:var(--teal-950); background:var(--gold-soft);}
   .form-error{
     display:none;
     margin-top:12px;
@@ -503,6 +485,22 @@
     line-height:1.5;
   }
   .form-error.show{display:block;}
+  .form-success{
+    display:none;
+    align-items:flex-start;
+    gap:10px;
+    margin-top:12px;
+    padding:14px 16px;
+    border-radius:12px;
+    background:var(--teal-100);
+    border:1px solid var(--teal-400);
+    color:var(--teal-900);
+    font-size:13.5px;
+    font-weight:500;
+    line-height:1.5;
+  }
+  .form-success.show{display:flex;}
+  .form-success svg{flex:none; margin-top:1px; color:var(--teal-600);}
   @media (max-width:900px){
     .contact-grid{grid-template-columns:1fr; gap:40px;}
     .field-row{grid-template-columns:1fr;}
@@ -736,15 +734,11 @@
           </select>
         </div>
         <div class="field"><label for="fmsg">Message</label><textarea id="fmsg" rows="3" placeholder="Tell us a little about your care needs and preferred tour date..."></textarea></div>
-        <button type="submit" class="btn btn-gold">Send Inquiry</button>
+        <button type="submit" class="btn btn-gold" id="submitBtn">Send Inquiry</button>
         <div class="form-error" id="formError"></div>
-        <div class="send-fallback" id="sendFallback">
-          <b>Opening your email app now…</b>
-          If nothing opens in a few seconds, your device may not have a default email app set up. You can email us directly instead:
-          <div class="fallback-actions">
-            <a href="mailto:sanjacintoassistedliving.llc@gmail.com" id="mailtoLink">Open sanjacintoassistedliving.llc@gmail.com</a>
-            <button type="button" id="copyMsgBtn">Copy message</button>
-          </div>
+        <div class="form-success" id="formSuccess">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9"/></svg>
+          <span id="formSuccessText"></span>
         </div>
       </form>
     </div>
@@ -786,14 +780,53 @@
   document.querySelectorAll('.reveal, .stroke-underline').forEach(el => io.observe(el));
 
   const form = document.getElementById('inquiryForm');
-  const fallback = document.getElementById('sendFallback');
-  const mailtoLink = document.getElementById('mailtoLink');
-  const copyBtn = document.getElementById('copyMsgBtn');
+  const submitBtn = document.getElementById('submitBtn');
   const formError = document.getElementById('formError');
-  let lastPlainMessage = '';
+  const formSuccess = document.getElementById('formSuccess');
+  const formSuccessText = document.getElementById('formSuccessText');
+
+  // ---------------------------------------------------------------------
+  // EmailJS configuration
+  // Sign up free at https://www.emailjs.com, then replace the 3 values
+  // below with the ones from your EmailJS dashboard:
+  //   - PUBLIC_KEY  → Account → General → Public Key
+  //   - SERVICE_ID  → Email Services → your connected Gmail service
+  //   - TEMPLATE_ID → Email Templates → your template's ID
+  // The email template in your EmailJS dashboard should send to
+  // sanjacintoassistedliving.llc@gmail.com and use the subject line
+  // "New Tour Inquiry - San Jacinto Assisted Living", with a body that
+  // references these template variables: {{full_name}}, {{phone}},
+  // {{email}}, {{care_for}}, {{message}}.
+  // ---------------------------------------------------------------------
+  const EMAILJS_PUBLIC_KEY  = 'YOUR_EMAILJS_PUBLIC_KEY';
+  const EMAILJS_SERVICE_ID  = 'YOUR_EMAILJS_SERVICE_ID';
+  const EMAILJS_TEMPLATE_ID = 'YOUR_EMAILJS_TEMPLATE_ID';
+
+  if (window.emailjs) {
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+  }
+
+  function showError(message){
+    formSuccess.classList.remove('show');
+    formError.textContent = message;
+    formError.classList.add('show');
+    formError.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  function showSuccess(message){
+    formError.classList.remove('show');
+    formSuccessText.textContent = message;
+    formSuccess.classList.add('show');
+    formSuccess.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  function setSending(isSending){
+    submitBtn.disabled = isSending;
+    submitBtn.textContent = isSending ? 'Sending...' : 'Send Inquiry';
+  }
 
   form.addEventListener('submit', function(e){
-    e.preventDefault();
+    e.preventDefault(); // never submit to a backend or reload the page
 
     const fullName = document.getElementById('fname').value.trim();
     const phone = document.getElementById('fphone').value.trim();
@@ -801,69 +834,48 @@
     const relation = document.getElementById('frelation').value;
     const message = document.getElementById('fmsg').value.trim();
 
-    // Validate required fields before doing anything else
+    // 1. Validate required fields before sending anything
     const missing = [];
     if(!fullName) missing.push('Full Name');
     if(!phone) missing.push('Phone');
     if(!email) missing.push('Email');
 
     if(missing.length){
-      formError.textContent = `Please fill in the following before sending: ${missing.join(', ')}.`;
-      formError.classList.add('show');
-      fallback.classList.remove('show');
+      showError(`Please fill in the following before sending: ${missing.join(', ')}.`);
       return;
     }
     formError.classList.remove('show');
+    formSuccess.classList.remove('show');
 
-    const subject = 'New Tour Inquiry - San Jacinto Assisted Living';
-    const body =
-`Hello,
+    // Template variables — must match the variable names used inside
+    // your EmailJS dashboard template (see config note above).
+    const templateParams = {
+      to_email: 'sanjacintoassistedliving.llc@gmail.com',
+      subject: 'New Tour Inquiry - San Jacinto Assisted Living',
+      full_name: fullName,
+      phone: phone,
+      email: email,
+      care_for: relation,
+      message: message,
+      reply_to: email
+    };
 
-I would like to inquire about your assisted living services.
+    // 2 & 3. Disable the button and show a sending state
+    setSending(true);
 
-Full Name:
-${fullName}
-
-Phone:
-${phone}
-
-Email:
-${email}
-
-I'm Inquiring About Care For:
-${relation}
-
-Message:
-${message}
-
-Thank you.`;
-
-    const mailtoHref = `mailto:sanjacintoassistedliving.llc@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    lastPlainMessage = body;
-
-    mailtoLink.href = mailtoHref;
-    fallback.classList.add('show');
-    copyBtn.textContent = 'Copy message';
-    copyBtn.classList.remove('copied');
-
-    // Open the visitor's default email app without navigating/refreshing this page
-    const trigger = document.createElement('a');
-    trigger.href = mailtoHref;
-    trigger.style.display = 'none';
-    document.body.appendChild(trigger);
-    trigger.click();
-    document.body.removeChild(trigger);
-
-    fallback.scrollIntoView({behavior:'smooth', block:'nearest'});
-  });
-
-  copyBtn.addEventListener('click', function(){
-    navigator.clipboard.writeText(lastPlainMessage).then(function(){
-      copyBtn.textContent = 'Copied ✓';
-      copyBtn.classList.add('copied');
-    }).catch(function(){
-      copyBtn.textContent = 'Copy failed — select manually';
-    });
+    // 4 & 5 & 6. Send via EmailJS — no backend, no page navigation
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
+      .then(function(){
+        showSuccess('Thank you! Your inquiry has been sent successfully. We will contact you shortly.');
+        form.reset();
+      })
+      .catch(function(err){
+        console.error('EmailJS send failed:', err);
+        showError("Sorry, something went wrong sending your inquiry. Please try again, or call us directly at (855) 627-4775.");
+      })
+      .finally(function(){
+        setSending(false);
+      });
   });
 </script>
 
