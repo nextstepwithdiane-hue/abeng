@@ -490,6 +490,19 @@
     cursor:pointer;
   }
   .send-fallback .fallback-actions .copied{border-color:var(--gold); color:var(--teal-950); background:var(--gold-soft);}
+  .form-error{
+    display:none;
+    margin-top:12px;
+    padding:12px 16px;
+    border-radius:12px;
+    background:#FBEAEA;
+    border:1px solid #E3A6A6;
+    color:#8A2F2F;
+    font-size:13.5px;
+    font-weight:500;
+    line-height:1.5;
+  }
+  .form-error.show{display:block;}
   @media (max-width:900px){
     .contact-grid{grid-template-columns:1fr; gap:40px;}
     .field-row{grid-template-columns:1fr;}
@@ -724,6 +737,7 @@
         </div>
         <div class="field"><label for="fmsg">Message</label><textarea id="fmsg" rows="3" placeholder="Tell us a little about your care needs and preferred tour date..."></textarea></div>
         <button type="submit" class="btn btn-gold">Send Inquiry</button>
+        <div class="form-error" id="formError"></div>
         <div class="send-fallback" id="sendFallback">
           <b>Opening your email app now…</b>
           If nothing opens in a few seconds, your device may not have a default email app set up. You can email us directly instead:
@@ -775,27 +789,64 @@
   const fallback = document.getElementById('sendFallback');
   const mailtoLink = document.getElementById('mailtoLink');
   const copyBtn = document.getElementById('copyMsgBtn');
+  const formError = document.getElementById('formError');
   let lastPlainMessage = '';
 
   form.addEventListener('submit', function(e){
     e.preventDefault();
-    const name = document.getElementById('fname').value.trim();
+
+    const fullName = document.getElementById('fname').value.trim();
     const phone = document.getElementById('fphone').value.trim();
     const email = document.getElementById('femail').value.trim();
     const relation = document.getElementById('frelation').value;
-    const msg = document.getElementById('fmsg').value.trim();
+    const message = document.getElementById('fmsg').value.trim();
 
-    lastPlainMessage = `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\nInquiring for: ${relation}\n\nMessage:\n${msg}`;
-    const subject = encodeURIComponent(`Tour Inquiry - ${name}`);
-    const body = encodeURIComponent(lastPlainMessage);
-    const mailtoHref = `mailto:sanjacintoassistedliving.llc@gmail.com?subject=${subject}&body=${body}`;
+    // Validate required fields before doing anything else
+    const missing = [];
+    if(!fullName) missing.push('Full Name');
+    if(!phone) missing.push('Phone');
+    if(!email) missing.push('Email');
+
+    if(missing.length){
+      formError.textContent = `Please fill in the following before sending: ${missing.join(', ')}.`;
+      formError.classList.add('show');
+      fallback.classList.remove('show');
+      return;
+    }
+    formError.classList.remove('show');
+
+    const subject = 'New Tour Inquiry - San Jacinto Assisted Living';
+    const body =
+`Hello,
+
+I would like to inquire about your assisted living services.
+
+Full Name:
+${fullName}
+
+Phone:
+${phone}
+
+Email:
+${email}
+
+I'm Inquiring About Care For:
+${relation}
+
+Message:
+${message}
+
+Thank you.`;
+
+    const mailtoHref = `mailto:sanjacintoassistedliving.llc@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    lastPlainMessage = body;
 
     mailtoLink.href = mailtoHref;
     fallback.classList.add('show');
     copyBtn.textContent = 'Copy message';
     copyBtn.classList.remove('copied');
 
-    // Attempt to launch the user's email client via a genuine link click (more reliable than location.href)
+    // Open the visitor's default email app without navigating/refreshing this page
     const trigger = document.createElement('a');
     trigger.href = mailtoHref;
     trigger.style.display = 'none';
