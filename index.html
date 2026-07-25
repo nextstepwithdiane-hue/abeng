@@ -465,6 +465,31 @@
   }
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
   .contact-form .btn{width:100%; justify-content:center; margin-top:6px;}
+  .send-fallback{
+    display:none;
+    margin-top:18px;
+    padding:16px 18px;
+    background:var(--teal-100);
+    border-radius:14px;
+    font-size:13.5px;
+    color:var(--teal-900);
+    line-height:1.55;
+  }
+  .send-fallback.show{display:block;}
+  .send-fallback b{display:block; margin-bottom:6px; font-size:14px;}
+  .send-fallback .fallback-actions{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;}
+  .send-fallback .fallback-actions a, .send-fallback .fallback-actions button{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:700;
+    padding:9px 16px;
+    border-radius:100px;
+    border:1.5px solid var(--teal-600);
+    background:var(--white);
+    color:var(--teal-800);
+    cursor:pointer;
+  }
+  .send-fallback .fallback-actions .copied{border-color:var(--gold); color:var(--teal-950); background:var(--gold-soft);}
   @media (max-width:900px){
     .contact-grid{grid-template-columns:1fr; gap:40px;}
     .field-row{grid-template-columns:1fr;}
@@ -685,10 +710,10 @@
         <h3>Request a tour</h3>
         <p class="sub">Send us a few details and we'll follow up to confirm a time that works for you.</p>
         <div class="field-row">
-          <div class="field"><label for="fname">Full name</label><input id="fname" type="text" placeholder="Diane Abel" required></div>
+          <div class="field"><label for="fname">Full name</label><input id="fname" type="text" placeholder="Jane Smith" required></div>
           <div class="field"><label for="fphone">Phone</label><input id="fphone" type="tel" placeholder="(555) 123-4567" required></div>
         </div>
-        <div class="field"><label for="femail">Email</label><input id="femail" type="email" placeholder="diane@email.com" required></div>
+        <div class="field"><label for="femail">Email</label><input id="femail" type="email" placeholder="jane@email.com" required></div>
         <div class="field"><label for="frelation">I'm inquiring about care for</label>
           <select id="frelation">
             <option>Myself</option>
@@ -699,6 +724,14 @@
         </div>
         <div class="field"><label for="fmsg">Message</label><textarea id="fmsg" rows="3" placeholder="Tell us a little about your care needs and preferred tour date..."></textarea></div>
         <button type="submit" class="btn btn-gold">Send Inquiry</button>
+        <div class="send-fallback" id="sendFallback">
+          <b>Opening your email app now…</b>
+          If nothing opens in a few seconds, your device may not have a default email app set up. You can email us directly instead:
+          <div class="fallback-actions">
+            <a href="mailto:sanjacintoassistedliving.llc@gmail.com" id="mailtoLink">Open sanjacintoassistedliving.llc@gmail.com</a>
+            <button type="button" id="copyMsgBtn">Copy message</button>
+          </div>
+        </div>
       </form>
     </div>
   </div>
@@ -739,15 +772,47 @@
   document.querySelectorAll('.reveal, .stroke-underline').forEach(el => io.observe(el));
 
   const form = document.getElementById('inquiryForm');
+  const fallback = document.getElementById('sendFallback');
+  const mailtoLink = document.getElementById('mailtoLink');
+  const copyBtn = document.getElementById('copyMsgBtn');
+  let lastPlainMessage = '';
+
   form.addEventListener('submit', function(e){
     e.preventDefault();
-    const name = document.getElementById('fname').value;
-    const phone = document.getElementById('fphone').value;
-    const email = document.getElementById('femail').value;
+    const name = document.getElementById('fname').value.trim();
+    const phone = document.getElementById('fphone').value.trim();
+    const email = document.getElementById('femail').value.trim();
     const relation = document.getElementById('frelation').value;
-    const msg = document.getElementById('fmsg').value;
-    const body = `Name: ${name}%0APhone: ${phone}%0AEmail: ${email}%0AInquiring for: ${relation}%0A%0AMessage:%0A${msg}`;
-    window.location.href = `mailto:sanjacintoassistedliving.llc@gmail.com?subject=Tour%20Inquiry%20-%20${encodeURIComponent(name)}&body=${body}`;
+    const msg = document.getElementById('fmsg').value.trim();
+
+    lastPlainMessage = `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\nInquiring for: ${relation}\n\nMessage:\n${msg}`;
+    const subject = encodeURIComponent(`Tour Inquiry - ${name}`);
+    const body = encodeURIComponent(lastPlainMessage);
+    const mailtoHref = `mailto:sanjacintoassistedliving.llc@gmail.com?subject=${subject}&body=${body}`;
+
+    mailtoLink.href = mailtoHref;
+    fallback.classList.add('show');
+    copyBtn.textContent = 'Copy message';
+    copyBtn.classList.remove('copied');
+
+    // Attempt to launch the user's email client via a genuine link click (more reliable than location.href)
+    const trigger = document.createElement('a');
+    trigger.href = mailtoHref;
+    trigger.style.display = 'none';
+    document.body.appendChild(trigger);
+    trigger.click();
+    document.body.removeChild(trigger);
+
+    fallback.scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+
+  copyBtn.addEventListener('click', function(){
+    navigator.clipboard.writeText(lastPlainMessage).then(function(){
+      copyBtn.textContent = 'Copied ✓';
+      copyBtn.classList.add('copied');
+    }).catch(function(){
+      copyBtn.textContent = 'Copy failed — select manually';
+    });
   });
 </script>
 
