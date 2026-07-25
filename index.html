@@ -8,8 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<!-- EmailJS Browser SDK — used to send the "Request a Tour" form without a backend -->
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root{
     --teal-950:#082E2F;
@@ -786,25 +784,14 @@
   const formSuccessText = document.getElementById('formSuccessText');
 
   // ---------------------------------------------------------------------
-  // EmailJS configuration
-  // Sign up free at https://www.emailjs.com, then replace the 3 values
-  // below with the ones from your EmailJS dashboard:
-  //   - PUBLIC_KEY  → Account → General → Public Key
-  //   - SERVICE_ID  → Email Services → your connected Gmail service
-  //   - TEMPLATE_ID → Email Templates → your template's ID
-  // The email template in your EmailJS dashboard should send to
-  // sanjacintoassistedliving.llc@gmail.com and use the subject line
-  // "New Tour Inquiry - San Jacinto Assisted Living", with a body that
-  // references these template variables: {{full_name}}, {{phone}},
-  // {{email}}, {{care_for}}, {{message}}.
+  // FormSubmit configuration — no account, no dashboard, no password.
+  // Your Gmail address is already dropped in below. The very first time
+  // an inquiry is sent, FormSubmit emails that address ONE confirmation
+  // link (just to prove it's really your inbox, not a signup) — click
+  // it once, and every inquiry after that lands straight in your Gmail
+  // automatically. Nothing else to configure, nothing to sign up for.
   // ---------------------------------------------------------------------
-  const EMAILJS_PUBLIC_KEY  = 'YOUR_EMAILJS_PUBLIC_KEY';
-  const EMAILJS_SERVICE_ID  = 'YOUR_EMAILJS_SERVICE_ID';
-  const EMAILJS_TEMPLATE_ID = 'YOUR_EMAILJS_TEMPLATE_ID';
-
-  if (window.emailjs) {
-    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-  }
+  const FORMSUBMIT_ENDPOINT = 'https://formsubmit.co/ajax/sanjacintoassistedliving.llc@gmail.com';
 
   function showError(message){
     formSuccess.classList.remove('show');
@@ -826,7 +813,7 @@
   }
 
   form.addEventListener('submit', function(e){
-    e.preventDefault(); // never submit to a backend or reload the page
+    e.preventDefault(); // never submit to a backend page or reload
 
     const fullName = document.getElementById('fname').value.trim();
     const phone = document.getElementById('fphone').value.trim();
@@ -834,7 +821,7 @@
     const relation = document.getElementById('frelation').value;
     const message = document.getElementById('fmsg').value.trim();
 
-    // 1. Validate required fields before sending anything
+    // Validate required fields before sending anything
     const missing = [];
     if(!fullName) missing.push('Full Name');
     if(!phone) missing.push('Phone');
@@ -847,30 +834,38 @@
     formError.classList.remove('show');
     formSuccess.classList.remove('show');
 
-    // Template variables — must match the variable names used inside
-    // your EmailJS dashboard template (see config note above).
-    const templateParams = {
-      to_email: 'sanjacintoassistedliving.llc@gmail.com',
-      subject: 'New Tour Inquiry - San Jacinto Assisted Living',
-      full_name: fullName,
-      phone: phone,
-      email: email,
-      care_for: relation,
-      message: message,
-      reply_to: email
-    };
-
-    // 2 & 3. Disable the button and show a sending state
+    // Disable the button and show a sending state
     setSending(true);
 
-    // 4 & 5 & 6. Send via EmailJS — no backend, no page navigation
-    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
-      .then(function(){
-        showSuccess('Thank you! Your inquiry has been sent successfully. We will contact you shortly.');
-        form.reset();
+    // Send straight to your Gmail via FormSubmit — no backend, no reload,
+    // no email app ever opens on the visitor's device.
+    fetch(FORMSUBMIT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        Name: fullName,
+        Phone: phone,
+        Email: email,
+        'Inquiring about care for': relation,
+        Message: message,
+        _subject: 'New Tour Inquiry - San Jacinto Assisted Living',
+        _captcha: 'false',
+        _template: 'table'
+      })
+    })
+      .then(function(response){
+        if(response.ok){
+          showSuccess('Thank you! Your inquiry has been sent successfully. We will contact you shortly.');
+          form.reset();
+        } else {
+          throw new Error('Form send failed');
+        }
       })
       .catch(function(err){
-        console.error('EmailJS send failed:', err);
+        console.error('Inquiry send failed:', err);
         showError("Sorry, something went wrong sending your inquiry. Please try again, or call us directly at (855) 627-4775.");
       })
       .finally(function(){
